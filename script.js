@@ -65,7 +65,9 @@ let userData = {
 
     weight: 0,
     targetWeight: 0,
-    desiredLossKg: 0,
+
+    weightToLose: 0,
+    calorieDeficit: 0,
 
     streak: 0
 };
@@ -106,7 +108,7 @@ fileInput.style.display = "none";
 
 
 // ======================================================
-// DADOS PADRÃO DE UMA CONTA NOVA
+// DADOS PADRÃO
 // ======================================================
 
 function getDefaultUserData() {
@@ -121,7 +123,9 @@ function getDefaultUserData() {
 
         weight: 0,
         targetWeight: 0,
-        desiredLossKg: 0,
+
+        weightToLose: 0,
+        calorieDeficit: 0,
 
         streak: 0
     };
@@ -191,10 +195,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 );
 
                 dataReady = true;
-
-                alert(
-                    "Não foi possível carregar seus dados."
-                );
 
                 render();
             }
@@ -272,13 +272,10 @@ async function loadUserData() {
     const snapshot = await getDoc(userRef);
 
 
-    // --------------------------------------------------
-    // CONTA NOVA
-    // --------------------------------------------------
-
     if (!snapshot.exists()) {
 
-        userData = getDefaultUserData();
+        userData =
+            getDefaultUserData();
 
         meals = [];
 
@@ -287,19 +284,12 @@ async function loadUserData() {
             meals: []
         });
 
-        console.log(
-            "Novo usuário criado no Firestore."
-        );
-
         return;
     }
 
 
-    // --------------------------------------------------
-    // CONTA EXISTENTE
-    // --------------------------------------------------
-
     const data = snapshot.data();
+
 
     userData = {
 
@@ -324,8 +314,11 @@ async function loadUserData() {
         targetWeight:
             Number(data.targetWeight) || 0,
 
-        desiredLossKg:
-            Number(data.desiredLossKg) || 0,
+        weightToLose:
+            Number(data.weightToLose) || 0,
+
+        calorieDeficit:
+            Number(data.calorieDeficit) || 0,
 
         streak:
             Number(data.streak) || 0
@@ -345,13 +338,6 @@ async function loadUserData() {
         }))
 
         : [];
-
-
-    console.log(
-        "Dados carregados:",
-        userData,
-        meals
-    );
 }
 
 
@@ -376,6 +362,7 @@ async function saveUserData() {
         currentUser.uid
     );
 
+
     await setDoc(
         userRef,
         {
@@ -386,10 +373,6 @@ async function saveUserData() {
             merge: true
         }
     );
-
-    console.log(
-        "Dados salvos no Firestore."
-    );
 }
 
 
@@ -399,266 +382,31 @@ async function saveUserData() {
 
 function resetLocalState() {
 
-    userData = getDefaultUserData();
+    userData =
+        getDefaultUserData();
 
     meals = [];
 
-    currentTab = "inicio";
+    currentTab =
+        "inicio";
 
-    analysis = false;
-    added = false;
+    analysis =
+        false;
 
-    selectedImage = null;
-    selectedFile = null;
+    added =
+        false;
 
-    aiResult = null;
-    isAnalyzing = false;
-}
+    selectedImage =
+        null;
 
+    selectedFile =
+        null;
 
-// ======================================================
-// CÁLCULO DO DÉFICIT CALÓRICO
-// ======================================================
-//
-// Regra simplificada:
-// manutenção estimada = peso × 30 kcal
-// déficit diário = 500 kcal
-//
-// Exemplo:
-// 70 kg × 30 = 2100 kcal
-// 2100 - 500 = 1600 kcal
-//
-// Isso é uma estimativa simplificada, pois sem idade,
-// altura, sexo e nível de atividade não é possível
-// calcular o gasto energético individual com precisão.
-// ======================================================
+    aiResult =
+        null;
 
-function calculateCalorieGoal(weight) {
-
-    const numericWeight =
-        Number(weight) || 0;
-
-
-    if (numericWeight <= 0) {
-        return 0;
-    }
-
-
-    const estimatedMaintenance =
-        numericWeight * 30;
-
-
-    const deficit =
-        500;
-
-
-    const goal =
-        Math.round(
-            estimatedMaintenance - deficit
-        );
-
-
-    // Evita gerar uma meta extremamente baixa.
-    return Math.max(
-        goal,
-        1200
-    );
-}
-
-
-// ======================================================
-// CONFIGURAR OBJETIVOS
-// ======================================================
-
-async function configureGoals() {
-
-    if (!currentUser) {
-
-        alert(
-            "Você precisa estar logado."
-        );
-
-        return;
-    }
-
-
-    // --------------------------------------------------
-    // PESO ATUAL
-    // --------------------------------------------------
-
-    const currentWeightInput =
-        prompt(
-            "Qual é o seu peso atual em kg?",
-            userData.weight > 0
-                ? String(userData.weight)
-                : ""
-        );
-
-
-    if (
-        currentWeightInput === null
-    ) {
-        return;
-    }
-
-
-    const currentWeight =
-        Number(
-            currentWeightInput
-                .replace(",", ".")
-        );
-
-
-    if (
-        !Number.isFinite(currentWeight) ||
-        currentWeight <= 0 ||
-        currentWeight > 500
-    ) {
-
-        alert(
-            "Digite um peso válido."
-        );
-
-        return;
-    }
-
-
-    // --------------------------------------------------
-    // QUANTOS KG DESEJA PERDER
-    // --------------------------------------------------
-
-    const desiredLossInput =
-        prompt(
-            "Quantos kg você deseja perder?",
-            userData.desiredLossKg > 0
-                ? String(userData.desiredLossKg)
-                : ""
-        );
-
-
-    if (
-        desiredLossInput === null
-    ) {
-        return;
-    }
-
-
-    const desiredLoss =
-        Number(
-            desiredLossInput
-                .replace(",", ".")
-        );
-
-
-    if (
-        !Number.isFinite(desiredLoss) ||
-        desiredLoss <= 0
-    ) {
-
-        alert(
-            "Digite uma quantidade válida de kg."
-        );
-
-        return;
-    }
-
-
-    if (
-        desiredLoss >= currentWeight
-    ) {
-
-        alert(
-            "O peso que você deseja perder precisa ser menor que seu peso atual."
-        );
-
-        return;
-    }
-
-
-    // --------------------------------------------------
-    // CALCULAR PESO-ALVO
-    // --------------------------------------------------
-
-    const targetWeight =
-        Number(
-            (
-                currentWeight -
-                desiredLoss
-            ).toFixed(1)
-        );
-
-
-    // --------------------------------------------------
-    // CALCULAR META CALÓRICA
-    // --------------------------------------------------
-
-    const calorieGoal =
-        calculateCalorieGoal(
-            currentWeight
-        );
-
-
-    // --------------------------------------------------
-    // ATUALIZAR ESTADO
-    // --------------------------------------------------
-
-    const previousUserData =
-        {
-            ...userData
-        };
-
-
-    userData.weight =
-        currentWeight;
-
-
-    userData.targetWeight =
-        targetWeight;
-
-
-    userData.desiredLossKg =
-        desiredLoss;
-
-
-    userData.calorieGoal =
-        calorieGoal;
-
-
-    try {
-
-        await saveUserData();
-
-
-        alert(
-            `Objetivo configurado!\n\n` +
-            `Peso atual: ${currentWeight.toFixed(1).replace(".", ",")} kg\n` +
-            `Peso-alvo: ${targetWeight.toFixed(1).replace(".", ",")} kg\n` +
-            `Déficit diário: 500 kcal\n` +
-            `Meta diária: ${formatNumber(calorieGoal)} kcal`
-        );
-
-
-        render();
-
-    } catch (error) {
-
-        console.error(
-            "Erro ao salvar objetivo:",
-            error
-        );
-
-
-        userData =
-            previousUserData;
-
-
-        alert(
-            "Não foi possível salvar seu objetivo."
-        );
-
-
-        render();
-    }
+    isAnalyzing =
+        false;
 }
 
 
@@ -781,14 +529,10 @@ function renderLogin() {
 function bindLoginEvents() {
 
     const loginForm =
-        document.getElementById(
-            "loginForm"
-        );
+        document.getElementById("loginForm");
 
     const registerButton =
-        document.getElementById(
-            "registerButton"
-        );
+        document.getElementById("registerButton");
 
 
     if (loginForm) {
@@ -877,6 +621,7 @@ async function loginUser(
             "Erro no login:",
             err
         );
+
 
         if (error) {
 
@@ -1169,10 +914,6 @@ async function logoutUser() {
             "Erro ao sair:",
             error
         );
-
-        alert(
-            "Não foi possível sair da conta."
-        );
     }
 }
 
@@ -1294,6 +1035,7 @@ function Header(
             <button
                 class="avatar"
                 aria-label="Abrir perfil"
+                id="headerProfileButton"
             >
                 ${userName.substring(0, 2).toUpperCase()}
             </button>
@@ -1607,7 +1349,8 @@ function HomeScreen() {
                                 </b>
 
                                 <small>
-                                    Continue registrando suas refeições para acompanhar seu dia.
+                                    Déficit diário configurado:
+                                    ${formatNumber(userData.calorieDeficit)} kcal.
                                 </small>
 
                             `
@@ -1619,7 +1362,7 @@ function HomeScreen() {
                                 </b>
 
                                 <small>
-                                    Registre uma refeição ou configure sua meta para acompanhar seu progresso.
+                                    Configure seu objetivo no perfil para calcular sua meta calórica.
                                 </small>
 
                             `
@@ -2336,7 +2079,7 @@ function AnalysisScreen() {
 
 
 // ======================================================
-// PERFIL
+// PERFIL + CONFIGURAÇÃO DO DÉFICIT
 // ======================================================
 
 function ProfileScreen() {
@@ -2353,16 +2096,26 @@ function ProfileScreen() {
         Number(userData.targetWeight) || 0;
 
 
-    const desiredLoss =
-        Number(userData.desiredLossKg) || 0;
+    const weightToLose =
+        Number(userData.weightToLose) || 0;
 
 
     const calorieGoal =
         Number(userData.calorieGoal) || 0;
 
 
+    const calorieDeficit =
+        Number(userData.calorieDeficit) || 0;
+
+
     const streak =
         Number(userData.streak) || 0;
+
+
+    const hasGoal =
+        weight > 0 &&
+        targetWeight > 0 &&
+        calorieGoal > 0;
 
 
     return `
@@ -2391,11 +2144,9 @@ function ProfileScreen() {
 
 
                 <p>
-                    ${
-                        weight > 0 && targetWeight > 0
-                            ? `Objetivo: perder ${desiredLoss.toFixed(1).replace(".", ",")} kg`
-                            : "Configure seus objetivos"
-                    }
+                    ${hasGoal
+                        ? "Objetivo de perda de peso ativo"
+                        : "Configure seus objetivos"}
                 </p>
 
 
@@ -2404,13 +2155,11 @@ function ProfileScreen() {
                     <span>
 
                         <b>
-
                             ${
                                 weight > 0
                                     ? `${weight.toFixed(1).replace(".", ",")} kg`
                                     : "—"
                             }
-
                         </b>
 
                         <small>
@@ -2423,13 +2172,11 @@ function ProfileScreen() {
                     <span>
 
                         <b>
-
                             ${
                                 targetWeight > 0
                                     ? `${targetWeight.toFixed(1).replace(".", ",")} kg`
                                     : "—"
                             }
-
                         </b>
 
                         <small>
@@ -2456,29 +2203,277 @@ function ProfileScreen() {
             </section>
 
 
+            <!-- ========================================= -->
+            <!-- CONFIGURAÇÃO DO OBJETIVO -->
+            <!-- ========================================= -->
+
+            <section
+                class="profile-card"
+                style="margin-top:16px;text-align:left;"
+            >
+
+                <div style="margin-bottom:18px;">
+
+                    <p
+                        style="
+                            margin:0 0 5px;
+                            font-size:9px;
+                            letter-spacing:1.4px;
+                            font-weight:900;
+                            color:#ff55d7;
+                        "
+                    >
+                        OBJETIVO DE EMAGRECIMENTO
+                    </p>
+
+                    <h2
+                        style="
+                            font-size:20px;
+                            margin:0;
+                        "
+                    >
+                        Configure seu déficit
+                    </h2>
+
+                </div>
+
+
+                <div
+                    id="goalMessage"
+                    style="
+                        display:none;
+                        margin-bottom:12px;
+                        padding:10px;
+                        border-radius:12px;
+                        font-size:10px;
+                        line-height:1.4;
+                        background:#24182d;
+                        color:#ff8ce2;
+                    "
+                ></div>
+
+
+                <form id="goalForm">
+
+                    <label
+                        for="currentWeightInput"
+                        style="
+                            display:block;
+                            font-size:10px;
+                            font-weight:700;
+                            margin-bottom:6px;
+                            color:#c5bdca;
+                        "
+                    >
+                        Peso atual
+                    </label>
+
+                    <input
+                        id="currentWeightInput"
+                        type="number"
+                        step="0.1"
+                        min="20"
+                        max="500"
+                        placeholder="Ex.: 71"
+                        value="${weight > 0 ? weight : ""}"
+                        required
+                        style="
+                            width:100%;
+                            box-sizing:border-box;
+                            padding:13px;
+                            border-radius:13px;
+                            border:1px solid #ffffff18;
+                            background:#1d1625;
+                            color:#fff;
+                            outline:none;
+                            margin-bottom:14px;
+                        "
+                    >
+
+
+                    <label
+                        for="weightToLoseInput"
+                        style="
+                            display:block;
+                            font-size:10px;
+                            font-weight:700;
+                            margin-bottom:6px;
+                            color:#c5bdca;
+                        "
+                    >
+                        Quantos kg você deseja perder?
+                    </label>
+
+                    <input
+                        id="weightToLoseInput"
+                        type="number"
+                        step="0.1"
+                        min="0.5"
+                        max="100"
+                        placeholder="Ex.: 5"
+                        value="${weightToLose > 0 ? weightToLose : ""}"
+                        required
+                        style="
+                            width:100%;
+                            box-sizing:border-box;
+                            padding:13px;
+                            border-radius:13px;
+                            border:1px solid #ffffff18;
+                            background:#1d1625;
+                            color:#fff;
+                            outline:none;
+                            margin-bottom:14px;
+                        "
+                    >
+
+
+                    <div
+                        id="goalPreview"
+                        style="
+                            display:none;
+                            padding:14px;
+                            border-radius:15px;
+                            background:#1d1625;
+                            border:1px solid #ffffff12;
+                            margin-bottom:14px;
+                        "
+                    >
+
+                        <div
+                            style="
+                                display:flex;
+                                justify-content:space-between;
+                                gap:10px;
+                                margin-bottom:10px;
+                            "
+                        >
+
+                            <span
+                                style="
+                                    font-size:9px;
+                                    color:#9e95a6;
+                                "
+                            >
+                                Peso-alvo
+                            </span>
+
+                            <strong
+                                id="previewTargetWeight"
+                                style="
+                                    font-size:13px;
+                                    color:#fff;
+                                "
+                            >
+                                —
+                            </strong>
+
+                        </div>
+
+
+                        <div
+                            style="
+                                display:flex;
+                                justify-content:space-between;
+                                gap:10px;
+                                margin-bottom:10px;
+                            "
+                        >
+
+                            <span
+                                style="
+                                    font-size:9px;
+                                    color:#9e95a6;
+                                "
+                            >
+                                Déficit diário
+                            </span>
+
+                            <strong
+                                id="previewDeficit"
+                                style="
+                                    font-size:13px;
+                                    color:#ff55d7;
+                                "
+                            >
+                                —
+                            </strong>
+
+                        </div>
+
+
+                        <div
+                            style="
+                                display:flex;
+                                justify-content:space-between;
+                                gap:10px;
+                            "
+                        >
+
+                            <span
+                                style="
+                                    font-size:9px;
+                                    color:#9e95a6;
+                                "
+                            >
+                                Meta calórica
+                            </span>
+
+                            <strong
+                                id="previewCalories"
+                                style="
+                                    font-size:13px;
+                                    color:#fff;
+                                "
+                            >
+                                —
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+
+                    <button
+                        type="submit"
+                        class="primary-button"
+                        id="saveGoalButton"
+                        style="margin-top:4px;"
+                    >
+                        Salvar objetivo
+                    </button>
+
+                </form>
+
+            </section>
+
+
             ${
-                calorieGoal > 0
+                hasGoal
 
                     ? `
 
-                        <section class="insight-card">
+                        <section
+                            class="insight-card"
+                            style="margin-top:16px;"
+                        >
 
                             <span>
-                                ${icon("spark")}
+                                ${icon("flame")}
                             </span>
 
                             <div>
 
                                 <p>
-                                    META CALÓRICA
+                                    SEU DÉFICIT
                                 </p>
 
                                 <b>
-                                    ${formatNumber(calorieGoal)} kcal por dia
+                                    ${formatNumber(calorieDeficit)} kcal por dia
                                 </b>
 
                                 <small>
-                                    Déficit estimado de 500 kcal/dia.
+                                    Meta de ${formatNumber(calorieGoal)} kcal por dia
+                                    para chegar aos ${targetWeight.toFixed(1).replace(".", ",")} kg.
                                 </small>
 
                             </div>
@@ -2489,15 +2484,6 @@ function ProfileScreen() {
 
                     : ""
             }
-
-
-            <button
-                class="primary-button"
-                id="configureGoalsButton"
-            >
-                ${icon("spark")}
-                Configurar seus objetivos
-            </button>
 
 
             <button
@@ -2924,12 +2910,6 @@ async function analyzeImage() {
         };
 
 
-        console.log(
-            "Resultado da IA:",
-            aiResult
-        );
-
-
         analysis =
             true;
 
@@ -3052,10 +3032,6 @@ async function addAnalysisToDiary() {
     };
 
 
-    // --------------------------------------------------
-    // ATUALIZA OS DADOS DO USUÁRIO
-    // --------------------------------------------------
-
     meals.push(meal);
 
 
@@ -3118,17 +3094,12 @@ async function addAnalysisToDiary() {
 
 
 // ======================================================
-// REMOVER UMA REFEIÇÃO DO DIÁRIO
+// REMOVER UMA REFEIÇÃO
 // ======================================================
 
 async function removeMeal(mealId) {
 
     if (!currentUser) {
-
-        alert(
-            "Você precisa estar logado."
-        );
-
         return;
     }
 
@@ -3142,11 +3113,6 @@ async function removeMeal(mealId) {
 
 
     if (mealIndex === -1) {
-
-        alert(
-            "Refeição não encontrada."
-        );
-
         return;
     }
 
@@ -3217,15 +3183,7 @@ async function removeMeal(mealId) {
 
         await saveUserData();
 
-
-        console.log(
-            "Refeição removida:",
-            meal
-        );
-
-
         render();
-
 
     } catch (error) {
 
@@ -3242,13 +3200,390 @@ async function removeMeal(mealId) {
             previousUserData;
 
 
-        alert(
-            "Não foi possível remover a refeição."
+        render();
+    }
+}
+
+
+// ======================================================
+// CALCULAR OBJETIVO
+// ======================================================
+//
+// Sem pedir idade, altura ou nível de atividade,
+// usamos uma referência simples de manutenção de
+// 2.500 kcal e aplicamos um déficit moderado.
+//
+// O usuário escolhe somente:
+// - peso atual
+// - kg que deseja perder
+//
+// 500 kcal/dia corresponde aproximadamente a
+// 0,45 kg/semana em termos energéticos.
+//
+// A meta fica limitada para evitar valores extremos.
+// ======================================================
+
+function calculateGoal(
+    currentWeight,
+    weightToLose
+) {
+
+    const targetWeight =
+        currentWeight -
+        weightToLose;
+
+
+    if (
+        targetWeight <= 0 ||
+        weightToLose <= 0
+    ) {
+
+        return null;
+    }
+
+
+    // Déficit padrão moderado.
+    const calorieDeficit = 500;
+
+
+    // Referência simplificada de manutenção.
+    const estimatedMaintenance = 2500;
+
+
+    const calorieGoal =
+        estimatedMaintenance -
+        calorieDeficit;
+
+
+    return {
+
+        currentWeight:
+            Number(
+                currentWeight.toFixed(1)
+            ),
+
+        weightToLose:
+            Number(
+                weightToLose.toFixed(1)
+            ),
+
+        targetWeight:
+            Number(
+                targetWeight.toFixed(1)
+            ),
+
+        calorieDeficit,
+
+        calorieGoal
+    };
+}
+
+
+// ======================================================
+// ATUALIZAR PREVISUALIZAÇÃO DO OBJETIVO
+// ======================================================
+
+function updateGoalPreview() {
+
+    const weightInput =
+        document.getElementById(
+            "currentWeightInput"
+        );
+
+    const loseInput =
+        document.getElementById(
+            "weightToLoseInput"
+        );
+
+
+    const preview =
+        document.getElementById(
+            "goalPreview"
+        );
+
+
+    const targetElement =
+        document.getElementById(
+            "previewTargetWeight"
+        );
+
+
+    const deficitElement =
+        document.getElementById(
+            "previewDeficit"
+        );
+
+
+    const caloriesElement =
+        document.getElementById(
+            "previewCalories"
+        );
+
+
+    if (
+        !weightInput ||
+        !loseInput ||
+        !preview
+    ) {
+        return;
+    }
+
+
+    const currentWeight =
+        Number(
+            weightInput.value
+        );
+
+
+    const weightToLose =
+        Number(
+            loseInput.value
+        );
+
+
+    const goal =
+        calculateGoal(
+            currentWeight,
+            weightToLose
+        );
+
+
+    if (!goal) {
+
+        preview.style.display =
+            "none";
+
+        return;
+    }
+
+
+    preview.style.display =
+        "block";
+
+
+    if (targetElement) {
+
+        targetElement.textContent =
+            `${goal.targetWeight.toFixed(1).replace(".", ",")} kg`;
+    }
+
+
+    if (deficitElement) {
+
+        deficitElement.textContent =
+            `${formatNumber(goal.calorieDeficit)} kcal`;
+    }
+
+
+    if (caloriesElement) {
+
+        caloriesElement.textContent =
+            `${formatNumber(goal.calorieGoal)} kcal/dia`;
+    }
+}
+
+
+// ======================================================
+// SALVAR OBJETIVO NO FIRESTORE
+// ======================================================
+
+async function saveWeightGoal(event) {
+
+    event.preventDefault();
+
+
+    if (!currentUser) {
+        return;
+    }
+
+
+    const weightInput =
+        document.getElementById(
+            "currentWeightInput"
+        );
+
+
+    const loseInput =
+        document.getElementById(
+            "weightToLoseInput"
+        );
+
+
+    const button =
+        document.getElementById(
+            "saveGoalButton"
+        );
+
+
+    const message =
+        document.getElementById(
+            "goalMessage"
+        );
+
+
+    const currentWeight =
+        Number(
+            weightInput?.value
+        );
+
+
+    const weightToLose =
+        Number(
+            loseInput?.value
+        );
+
+
+    if (
+        !Number.isFinite(currentWeight) ||
+        !Number.isFinite(weightToLose)
+    ) {
+
+        showGoalMessage(
+            "Preencha os dois campos corretamente."
+        );
+
+        return;
+    }
+
+
+    if (currentWeight < 20 || currentWeight > 500) {
+
+        showGoalMessage(
+            "Digite um peso válido."
+        );
+
+        return;
+    }
+
+
+    if (weightToLose < 0.5) {
+
+        showGoalMessage(
+            "O objetivo precisa ser de pelo menos 0,5 kg."
+        );
+
+        return;
+    }
+
+
+    if (weightToLose >= currentWeight) {
+
+        showGoalMessage(
+            "O peso que deseja perder não pode ser igual ou maior que seu peso atual."
+        );
+
+        return;
+    }
+
+
+    const goal =
+        calculateGoal(
+            currentWeight,
+            weightToLose
+        );
+
+
+    if (!goal) {
+
+        showGoalMessage(
+            "Não foi possível calcular seu objetivo."
+        );
+
+        return;
+    }
+
+
+    if (button) {
+
+        button.disabled =
+            true;
+
+        button.textContent =
+            "Salvando...";
+    }
+
+
+    try {
+
+        userData.weight =
+            goal.currentWeight;
+
+
+        userData.weightToLose =
+            goal.weightToLose;
+
+
+        userData.targetWeight =
+            goal.targetWeight;
+
+
+        userData.calorieDeficit =
+            goal.calorieDeficit;
+
+
+        userData.calorieGoal =
+            goal.calorieGoal;
+
+
+        await saveUserData();
+
+
+        showGoalMessage(
+            `Objetivo salvo. Sua meta é ${formatNumber(goal.calorieGoal)} kcal por dia e seu peso-alvo é ${goal.targetWeight.toFixed(1).replace(".", ",")} kg.`
         );
 
 
         render();
+
+
+    } catch (error) {
+
+        console.error(
+            "Erro ao salvar objetivo:",
+            error
+        );
+
+
+        showGoalMessage(
+            "Não foi possível salvar seu objetivo. Tente novamente."
+        );
+
+
+        if (button) {
+
+            button.disabled =
+                false;
+
+            button.textContent =
+                "Salvar objetivo";
+        }
     }
+}
+
+
+// ======================================================
+// MENSAGEM INLINE DO OBJETIVO
+// ======================================================
+
+function showGoalMessage(message) {
+
+    const element =
+        document.getElementById(
+            "goalMessage"
+        );
+
+
+    if (!element) {
+        return;
+    }
+
+
+    element.textContent =
+        message;
+
+
+    element.style.display =
+        "block";
 }
 
 
@@ -3279,6 +3614,28 @@ function bindEvents() {
                 }
             );
         });
+
+
+    // ==================================================
+    // AVATAR / PERFIL
+    // ==================================================
+
+    const headerProfileButton =
+        document.getElementById(
+            "headerProfileButton"
+        );
+
+
+    if (headerProfileButton) {
+
+        headerProfileButton.addEventListener(
+            "click",
+            () => {
+
+                navigate("perfil");
+            }
+        );
+    }
 
 
     // ==================================================
@@ -3430,11 +3787,7 @@ function bindEvents() {
 
         galleryButton.addEventListener(
             "click",
-            () => {
-
-                openFilePicker();
-
-            }
+            openFilePicker
         );
     }
 
@@ -3522,20 +3875,50 @@ function bindEvents() {
 
 
     // ==================================================
-    // CONFIGURAR OBJETIVOS
+    // CONFIGURAÇÃO DO DÉFICIT
     // ==================================================
 
-    const configureGoalsButton =
+    const goalForm =
         document.getElementById(
-            "configureGoalsButton"
+            "goalForm"
         );
 
 
-    if (configureGoalsButton) {
+    if (goalForm) {
 
-        configureGoalsButton.addEventListener(
-            "click",
-            configureGoals
+        goalForm.addEventListener(
+            "submit",
+            saveWeightGoal
+        );
+    }
+
+
+    const currentWeightInput =
+        document.getElementById(
+            "currentWeightInput"
+        );
+
+
+    const weightToLoseInput =
+        document.getElementById(
+            "weightToLoseInput"
+        );
+
+
+    if (currentWeightInput) {
+
+        currentWeightInput.addEventListener(
+            "input",
+            updateGoalPreview
+        );
+    }
+
+
+    if (weightToLoseInput) {
+
+        weightToLoseInput.addEventListener(
+            "input",
+            updateGoalPreview
         );
     }
 
@@ -3557,5 +3940,11 @@ function bindEvents() {
             logoutUser
         );
     }
-}
 
+
+    // ==================================================
+    // ATUALIZA PREVIEW
+    // ==================================================
+
+    updateGoalPreview();
+}

@@ -1,3 +1,4 @@
+
 const express = require("express");
 const multer = require("multer");
 const dotenv = require("dotenv");
@@ -6,7 +7,35 @@ const { GoogleGenAI } = require("@google/genai");
 dotenv.config();
 
 const app = express();
-const port = 3000;
+
+const port = process.env.PORT || 3000;
+
+// ======================================================
+// CORS
+// ======================================================
+
+app.use((req, res, next) => {
+    res.header(
+        "Access-Control-Allow-Origin",
+        "https://arthurgalleti.github.io"
+    );
+
+    res.header(
+        "Access-Control-Allow-Methods",
+        "GET, POST, OPTIONS"
+    );
+
+    res.header(
+        "Access-Control-Allow-Headers",
+        "Content-Type"
+    );
+
+    if (req.method === "OPTIONS") {
+        return res.sendStatus(204);
+    }
+
+    next();
+});
 
 // ======================================================
 // GEMINI
@@ -15,7 +44,10 @@ const port = 3000;
 const apiKey = process.env.GEMINI_API_KEY;
 
 if (!apiKey) {
-    console.error("ERRO: GEMINI_API_KEY não encontrada no arquivo .env");
+    console.error(
+        "ERRO: GEMINI_API_KEY não encontrada nas variáveis de ambiente."
+    );
+
     process.exit(1);
 }
 
@@ -29,12 +61,16 @@ const ai = new GoogleGenAI({
 
 const upload = multer({
     storage: multer.memoryStorage(),
+
     limits: {
         fileSize: 10 * 1024 * 1024
     },
+
     fileFilter: (req, file, cb) => {
         if (!file.mimetype.startsWith("image/")) {
-            return cb(new Error("O arquivo precisa ser uma imagem."));
+            return cb(
+                new Error("O arquivo precisa ser uma imagem.")
+            );
         }
 
         cb(null, true);
@@ -52,11 +88,13 @@ app.use(express.static(__dirname));
 // ======================================================
 
 function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise(resolve => {
+        setTimeout(resolve, ms);
+    });
 }
 
 // ======================================================
-// ANALISAR IMAGEM
+// ANALISAR IMAGEM COM GEMINI
 // ======================================================
 
 async function analyzeWithGemini(base64Image, mimeType) {
@@ -100,9 +138,11 @@ Regras:
 
     const response = await ai.models.generateContent({
         model: "gemini-3.6-flash",
+
         contents: [
             {
                 role: "user",
+
                 parts: [
                     {
                         text: prompt
@@ -116,6 +156,7 @@ Regras:
                 ]
             }
         ],
+
         config: {
             responseMimeType: "application/json"
         }
@@ -131,7 +172,9 @@ Regras:
 function cleanJson(text) {
 
     if (!text) {
-        throw new Error("O Gemini não retornou nenhum resultado.");
+        throw new Error(
+            "O Gemini não retornou nenhum resultado."
+        );
     }
 
     let cleaned = text.trim();
@@ -145,7 +188,10 @@ function cleanJson(text) {
     }
 
     if (cleaned.endsWith("```")) {
-        cleaned = cleaned.substring(0, cleaned.length - 3);
+        cleaned = cleaned.substring(
+            0,
+            cleaned.length - 3
+        );
     }
 
     return cleaned.trim();
@@ -163,9 +209,13 @@ function normalizeResult(data) {
 
     return {
         calories: Number(data.calories) || 0,
+
         protein: Number(data.protein) || 0,
+
         carbs: Number(data.carbs) || 0,
+
         fat: Number(data.fat) || 0,
+
         confidence: Number(data.confidence) || 0,
 
         foods: foods.map(food => {
@@ -178,9 +228,12 @@ function normalizeResult(data) {
                 ];
             }
 
-            if (typeof food === "object" && food !== null) {
-
-                const calories = Number(food.calorias) || 0;
+            if (
+                typeof food === "object" &&
+                food !== null
+            ) {
+                const calories =
+                    Number(food.calorias) || 0;
 
                 return [
                     String(food.nome || ""),
@@ -205,6 +258,7 @@ function normalizeResult(data) {
 app.post(
     "/api/analyze",
     upload.single("image"),
+
     async (req, res) => {
 
         console.log("");
@@ -214,14 +268,19 @@ app.post(
 
         try {
 
-            // Verificar imagem
+            // ==================================================
+            // VERIFICAR IMAGEM
+            // ==================================================
 
             if (!req.file) {
 
-                console.log("Nenhuma imagem recebida.");
+                console.log(
+                    "Nenhuma imagem recebida."
+                );
 
                 return res.status(400).json({
-                    error: "Nenhuma imagem foi enviada."
+                    error:
+                        "Nenhuma imagem foi enviada."
                 });
             }
 
@@ -237,10 +296,13 @@ app.post(
 
             console.log(
                 "Tamanho:",
-                (req.file.size / 1024 / 1024).toFixed(2) + " MB"
+                (req.file.size / 1024 / 1024).toFixed(2) +
+                " MB"
             );
 
-            // Converter imagem para Base64
+            // ==================================================
+            // CONVERTER IMAGEM PARA BASE64
+            // ==================================================
 
             const base64Image =
                 req.file.buffer.toString("base64");
@@ -271,6 +333,10 @@ app.post(
                         maxAttempts
                     );
 
+                    // ==================================================
+                    // GEMINI
+                    // ==================================================
+
                     const text =
                         await analyzeWithGemini(
                             base64Image,
@@ -280,6 +346,10 @@ app.post(
                     console.log(
                         "Resposta recebida do Gemini."
                     );
+
+                    // ==================================================
+                    // LIMPAR JSON
+                    // ==================================================
 
                     const cleaned =
                         cleanJson(text);
@@ -294,7 +364,7 @@ app.post(
                     } catch (error) {
 
                         console.error(
-                            "Resposta inválida:"
+                            "Resposta inválida do Gemini:"
                         );
 
                         console.error(cleaned);
@@ -304,6 +374,10 @@ app.post(
                                 "O Gemini retornou um JSON inválido."
                         });
                     }
+
+                    // ==================================================
+                    // NORMALIZAR RESULTADO
+                    // ==================================================
 
                     const result =
                         normalizeResult(parsed);
@@ -334,6 +408,10 @@ app.post(
                         message
                     );
 
+                    // ==================================================
+                    // ERROS TEMPORÁRIOS
+                    // ==================================================
+
                     const temporaryError =
                         message.includes("503") ||
                         message.includes("UNAVAILABLE") ||
@@ -344,6 +422,10 @@ app.post(
                     if (!temporaryError) {
                         break;
                     }
+
+                    // ==================================================
+                    // TENTAR NOVAMENTE
+                    // ==================================================
 
                     if (attempt < maxAttempts) {
 
@@ -366,7 +448,7 @@ app.post(
             }
 
             // ==================================================
-            // ERRO 503
+            // ERRO FINAL
             // ==================================================
 
             const finalMessage =
@@ -374,6 +456,10 @@ app.post(
                 lastError.message
                     ? lastError.message
                     : String(lastError);
+
+            // ==================================================
+            // ERRO 503
+            // ==================================================
 
             if (
                 finalMessage.includes("503") ||
@@ -473,17 +559,23 @@ app.listen(port, () => {
 
     console.log("");
     console.log("====================================");
-    console.log("          VITALI.IA");
+    console.log("            VITALI.IA");
     console.log("====================================");
+
     console.log(
-        "Servidor: http://localhost:" + port
+        "Servidor rodando na porta: " +
+        port
     );
+
     console.log(
         "Gemini: conectado"
     );
+
     console.log(
         "Modelo: gemini-3.6-flash"
     );
+
     console.log("====================================");
     console.log("");
 });
+

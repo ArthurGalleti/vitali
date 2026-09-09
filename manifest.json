@@ -1,0 +1,24 @@
+{
+  "name": "Vitali.IA",
+  "short_name": "Vitali.IA",
+  "description": "Seu assistente inteligente para alimentação e acompanhamento de calorias.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#16111f",
+  "theme_color": "#16111f",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/imagem192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/imagem512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

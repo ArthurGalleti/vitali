@@ -1,21 +1,21 @@
-const CACHE_NAME = "vitalia-v2";
+const CACHE_NAME = "vitalia-v3";
 
 const FILES_TO_CACHE = [
-    "/",
-    "/index.html",
-    "/style.css",
-    "/script.js",
-    "/manifest.json"
+    "./",
+    "./index.html",
+    "./style.css",
+    "./script.js",
+    "./manifest.json"
 ];
 
 // ======================================================
 // INSTALAÇÃO
 // ======================================================
 
-self.addEventListener("install", (event) => {
+self.addEventListener("install", event => {
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then((cache) => cache.addAll(FILES_TO_CACHE))
+            .then(cache => cache.addAll(FILES_TO_CACHE))
             .then(() => self.skipWaiting())
     );
 });
@@ -24,15 +24,17 @@ self.addEventListener("install", (event) => {
 // ATIVAÇÃO
 // ======================================================
 
-self.addEventListener("activate", (event) => {
+self.addEventListener("activate", event => {
     event.waitUntil(
-        caches.keys().then((cacheNames) => {
-            return Promise.all(
-                cacheNames
-                    .filter((name) => name !== CACHE_NAME)
-                    .map((name) => caches.delete(name))
-            );
-        }).then(() => self.clients.claim())
+        caches.keys()
+            .then(cacheNames => {
+                return Promise.all(
+                    cacheNames
+                        .filter(name => name !== CACHE_NAME)
+                        .map(name => caches.delete(name))
+                );
+            })
+            .then(() => self.clients.claim())
     );
 });
 
@@ -40,19 +42,19 @@ self.addEventListener("activate", (event) => {
 // FETCH
 // ======================================================
 
-self.addEventListener("fetch", (event) => {
+self.addEventListener("fetch", event => {
 
-    // Só trabalha com requisições GET.
-    // POST, PUT, DELETE etc. passam normalmente para a internet.
+    // Só intercepta requisições GET.
+    // POST, PUT, DELETE etc. continuam normalmente.
     if (event.request.method !== "GET") {
         return;
     }
 
     event.respondWith(
         fetch(event.request)
-            .then((response) => {
+            .then(response => {
 
-                // Só armazena respostas válidas.
+                // Só salva respostas válidas no cache.
                 if (
                     response &&
                     response.status === 200 &&
@@ -60,14 +62,16 @@ self.addEventListener("fetch", (event) => {
                 ) {
                     const responseClone = response.clone();
 
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(event.request, responseClone);
-                    });
+                    caches.open(CACHE_NAME)
+                        .then(cache => {
+                            cache.put(event.request, responseClone);
+                        });
                 }
 
                 return response;
             })
             .catch(() => {
+                // Se estiver offline, tenta usar o cache.
                 return caches.match(event.request);
             })
     );

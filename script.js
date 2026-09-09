@@ -2549,13 +2549,17 @@ async function analyzeImage() {
 
 
         console.log(
-            "Enviando imagem para /api/analyze..."
+            "Enviando imagem para o backend Render..."
         );
 
 
+        // ==================================================
+        // BACKEND RENDER
+        // ==================================================
+
         const response =
             await fetch(
-                "/api/analyze",
+                "https://vitali-api.onrender.com/api/analyze",
                 {
                     method: "POST",
                     body: formData

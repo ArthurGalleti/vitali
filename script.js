@@ -1,3 +1,4 @@
+
 // ======================================================
 // FIREBASE
 // ======================================================
@@ -64,6 +65,7 @@ let userData = {
 
     weight: 0,
     targetWeight: 0,
+    desiredLossKg: 0,
 
     streak: 0
 };
@@ -119,6 +121,7 @@ function getDefaultUserData() {
 
         weight: 0,
         targetWeight: 0,
+        desiredLossKg: 0,
 
         streak: 0
     };
@@ -321,6 +324,9 @@ async function loadUserData() {
         targetWeight:
             Number(data.targetWeight) || 0,
 
+        desiredLossKg:
+            Number(data.desiredLossKg) || 0,
+
         streak:
             Number(data.streak) || 0
     };
@@ -407,6 +413,252 @@ function resetLocalState() {
 
     aiResult = null;
     isAnalyzing = false;
+}
+
+
+// ======================================================
+// CÁLCULO DO DÉFICIT CALÓRICO
+// ======================================================
+//
+// Regra simplificada:
+// manutenção estimada = peso × 30 kcal
+// déficit diário = 500 kcal
+//
+// Exemplo:
+// 70 kg × 30 = 2100 kcal
+// 2100 - 500 = 1600 kcal
+//
+// Isso é uma estimativa simplificada, pois sem idade,
+// altura, sexo e nível de atividade não é possível
+// calcular o gasto energético individual com precisão.
+// ======================================================
+
+function calculateCalorieGoal(weight) {
+
+    const numericWeight =
+        Number(weight) || 0;
+
+
+    if (numericWeight <= 0) {
+        return 0;
+    }
+
+
+    const estimatedMaintenance =
+        numericWeight * 30;
+
+
+    const deficit =
+        500;
+
+
+    const goal =
+        Math.round(
+            estimatedMaintenance - deficit
+        );
+
+
+    // Evita gerar uma meta extremamente baixa.
+    return Math.max(
+        goal,
+        1200
+    );
+}
+
+
+// ======================================================
+// CONFIGURAR OBJETIVOS
+// ======================================================
+
+async function configureGoals() {
+
+    if (!currentUser) {
+
+        alert(
+            "Você precisa estar logado."
+        );
+
+        return;
+    }
+
+
+    // --------------------------------------------------
+    // PESO ATUAL
+    // --------------------------------------------------
+
+    const currentWeightInput =
+        prompt(
+            "Qual é o seu peso atual em kg?",
+            userData.weight > 0
+                ? String(userData.weight)
+                : ""
+        );
+
+
+    if (
+        currentWeightInput === null
+    ) {
+        return;
+    }
+
+
+    const currentWeight =
+        Number(
+            currentWeightInput
+                .replace(",", ".")
+        );
+
+
+    if (
+        !Number.isFinite(currentWeight) ||
+        currentWeight <= 0 ||
+        currentWeight > 500
+    ) {
+
+        alert(
+            "Digite um peso válido."
+        );
+
+        return;
+    }
+
+
+    // --------------------------------------------------
+    // QUANTOS KG DESEJA PERDER
+    // --------------------------------------------------
+
+    const desiredLossInput =
+        prompt(
+            "Quantos kg você deseja perder?",
+            userData.desiredLossKg > 0
+                ? String(userData.desiredLossKg)
+                : ""
+        );
+
+
+    if (
+        desiredLossInput === null
+    ) {
+        return;
+    }
+
+
+    const desiredLoss =
+        Number(
+            desiredLossInput
+                .replace(",", ".")
+        );
+
+
+    if (
+        !Number.isFinite(desiredLoss) ||
+        desiredLoss <= 0
+    ) {
+
+        alert(
+            "Digite uma quantidade válida de kg."
+        );
+
+        return;
+    }
+
+
+    if (
+        desiredLoss >= currentWeight
+    ) {
+
+        alert(
+            "O peso que você deseja perder precisa ser menor que seu peso atual."
+        );
+
+        return;
+    }
+
+
+    // --------------------------------------------------
+    // CALCULAR PESO-ALVO
+    // --------------------------------------------------
+
+    const targetWeight =
+        Number(
+            (
+                currentWeight -
+                desiredLoss
+            ).toFixed(1)
+        );
+
+
+    // --------------------------------------------------
+    // CALCULAR META CALÓRICA
+    // --------------------------------------------------
+
+    const calorieGoal =
+        calculateCalorieGoal(
+            currentWeight
+        );
+
+
+    // --------------------------------------------------
+    // ATUALIZAR ESTADO
+    // --------------------------------------------------
+
+    const previousUserData =
+        {
+            ...userData
+        };
+
+
+    userData.weight =
+        currentWeight;
+
+
+    userData.targetWeight =
+        targetWeight;
+
+
+    userData.desiredLossKg =
+        desiredLoss;
+
+
+    userData.calorieGoal =
+        calorieGoal;
+
+
+    try {
+
+        await saveUserData();
+
+
+        alert(
+            `Objetivo configurado!\n\n` +
+            `Peso atual: ${currentWeight.toFixed(1).replace(".", ",")} kg\n` +
+            `Peso-alvo: ${targetWeight.toFixed(1).replace(".", ",")} kg\n` +
+            `Déficit diário: 500 kcal\n` +
+            `Meta diária: ${formatNumber(calorieGoal)} kcal`
+        );
+
+
+        render();
+
+    } catch (error) {
+
+        console.error(
+            "Erro ao salvar objetivo:",
+            error
+        );
+
+
+        userData =
+            previousUserData;
+
+
+        alert(
+            "Não foi possível salvar seu objetivo."
+        );
+
+
+        render();
+    }
 }
 
 
@@ -529,10 +781,14 @@ function renderLogin() {
 function bindLoginEvents() {
 
     const loginForm =
-        document.getElementById("loginForm");
+        document.getElementById(
+            "loginForm"
+        );
 
     const registerButton =
-        document.getElementById("registerButton");
+        document.getElementById(
+            "registerButton"
+        );
 
 
     if (loginForm) {
@@ -2097,6 +2353,14 @@ function ProfileScreen() {
         Number(userData.targetWeight) || 0;
 
 
+    const desiredLoss =
+        Number(userData.desiredLossKg) || 0;
+
+
+    const calorieGoal =
+        Number(userData.calorieGoal) || 0;
+
+
     const streak =
         Number(userData.streak) || 0;
 
@@ -2127,7 +2391,11 @@ function ProfileScreen() {
 
 
                 <p>
-                    Configure seus objetivos
+                    ${
+                        weight > 0 && targetWeight > 0
+                            ? `Objetivo: perder ${desiredLoss.toFixed(1).replace(".", ",")} kg`
+                            : "Configure seus objetivos"
+                    }
                 </p>
 
 
@@ -2186,6 +2454,50 @@ function ProfileScreen() {
                 </div>
 
             </section>
+
+
+            ${
+                calorieGoal > 0
+
+                    ? `
+
+                        <section class="insight-card">
+
+                            <span>
+                                ${icon("spark")}
+                            </span>
+
+                            <div>
+
+                                <p>
+                                    META CALÓRICA
+                                </p>
+
+                                <b>
+                                    ${formatNumber(calorieGoal)} kcal por dia
+                                </b>
+
+                                <small>
+                                    Déficit estimado de 500 kcal/dia.
+                                </small>
+
+                            </div>
+
+                        </section>
+
+                    `
+
+                    : ""
+            }
+
+
+            <button
+                class="primary-button"
+                id="configureGoalsButton"
+            >
+                ${icon("spark")}
+                Configurar seus objetivos
+            </button>
 
 
             <button
@@ -2553,10 +2865,6 @@ async function analyzeImage() {
         );
 
 
-        // ==================================================
-        // BACKEND RENDER
-        // ==================================================
-
         const response =
             await fetch(
                 "https://vitali-api.onrender.com/api/analyze",
@@ -2858,10 +3166,6 @@ async function removeMeal(mealId) {
     }
 
 
-    // --------------------------------------------------
-    // GUARDA O ESTADO ORIGINAL
-    // --------------------------------------------------
-
     const previousMeals =
         [...meals];
 
@@ -2871,19 +3175,11 @@ async function removeMeal(mealId) {
         };
 
 
-    // --------------------------------------------------
-    // REMOVE A REFEIÇÃO
-    // --------------------------------------------------
-
     meals.splice(
         mealIndex,
         1
     );
 
-
-    // --------------------------------------------------
-    // SUBTRAI OS VALORES DA REFEIÇÃO
-    // --------------------------------------------------
 
     userData.calories =
         Math.max(
@@ -2938,10 +3234,6 @@ async function removeMeal(mealId) {
             error
         );
 
-
-        // --------------------------------------------------
-        // RESTAURA SE O FIRESTORE FALHAR
-        // --------------------------------------------------
 
         meals =
             previousMeals;
@@ -3230,6 +3522,25 @@ function bindEvents() {
 
 
     // ==================================================
+    // CONFIGURAR OBJETIVOS
+    // ==================================================
+
+    const configureGoalsButton =
+        document.getElementById(
+            "configureGoalsButton"
+        );
+
+
+    if (configureGoalsButton) {
+
+        configureGoalsButton.addEventListener(
+            "click",
+            configureGoals
+        );
+    }
+
+
+    // ==================================================
     // LOGOUT
     // ==================================================
 
@@ -3247,3 +3558,4 @@ function bindEvents() {
         );
     }
 }
+

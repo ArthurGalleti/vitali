@@ -1,4 +1,3 @@
-
 // ======================================================
 // FIREBASE
 // ======================================================
@@ -97,14 +96,30 @@ let isAnalyzing = false;
 
 
 // ======================================================
-// INPUT DE ARQUIVO
+// INPUTS DE ARQUIVO
 // ======================================================
+//
+// Temos DOIS inputs:
+//
+// 1. cameraInput -> abre a câmera no celular
+// 2. galleryInput -> abre a galeria/arquivos
+//
+// Isso evita que o botão "Galeria" também tente abrir a câmera.
+//
 
-const fileInput = document.createElement("input");
+const cameraInput = document.createElement("input");
 
-fileInput.type = "file";
-fileInput.accept = "image/*";
-fileInput.style.display = "none";
+cameraInput.type = "file";
+cameraInput.accept = "image/*";
+cameraInput.setAttribute("capture", "environment");
+cameraInput.style.display = "none";
+
+
+const galleryInput = document.createElement("input");
+
+galleryInput.type = "file";
+galleryInput.accept = "image/*";
+galleryInput.style.display = "none";
 
 
 // ======================================================
@@ -160,12 +175,33 @@ function generateMealId() {
 
 document.addEventListener("DOMContentLoaded", () => {
 
-    document.body.appendChild(fileInput);
+    document.body.appendChild(cameraInput);
+    document.body.appendChild(galleryInput);
 
-    fileInput.addEventListener(
+
+    // ==================================================
+    // CÂMERA
+    // ==================================================
+
+    cameraInput.addEventListener(
         "change",
         handleFileSelect
     );
+
+
+    // ==================================================
+    // GALERIA
+    // ==================================================
+
+    galleryInput.addEventListener(
+        "change",
+        handleFileSelect
+    );
+
+
+    // ==================================================
+    // FIREBASE AUTH
+    // ==================================================
 
     onAuthStateChanged(auth, async (user) => {
 
@@ -1670,11 +1706,11 @@ function CameraScreen() {
                             <img
                                 src="${selectedImage}"
                                 class="selected-photo"
-                                alt="Foto selecionada"
+                                alt="Foto da refeição"
                             >
 
                             <div class="photo-overlay">
-                                Foto selecionada
+                                Foto pronta
                             </div>
 
                         `
@@ -1704,17 +1740,22 @@ function CameraScreen() {
 
                 ${
                     selectedImage
-                        ? "Foto pronta. Clique no botão para analisar com a IA."
-                        : "Use boa iluminação e deixe todos os alimentos visíveis."
+                        ? "Foto capturada! Você pode tirar outra ou analisar esta foto."
+                        : "Toque no botão da câmera para fotografar sua refeição."
                 }
 
             </p>
 
 
+            <!-- ========================================= -->
+            <!-- BOTÃO DA CÂMERA -->
+            <!-- ========================================= -->
+
             <button
                 class="shutter"
                 id="shutterButton"
-                aria-label="Selecionar foto"
+                type="button"
+                aria-label="Tirar foto"
             >
 
                 <span>
@@ -1724,13 +1765,22 @@ function CameraScreen() {
             </button>
 
 
+            <!-- ========================================= -->
+            <!-- GALERIA -->
+            <!-- ========================================= -->
+
             <button
                 class="gallery-link"
                 id="galleryButton"
+                type="button"
             >
                 Escolher da galeria
             </button>
 
+
+            <!-- ========================================= -->
+            <!-- ANALISAR -->
+            <!-- ========================================= -->
 
             ${
                 selectedImage
@@ -1740,6 +1790,7 @@ function CameraScreen() {
                         <button
                             class="primary-button"
                             id="analyzeButton"
+                            type="button"
                             ${isAnalyzing ? "disabled" : ""}
                         >
 
@@ -2202,10 +2253,6 @@ function ProfileScreen() {
 
             </section>
 
-
-            <!-- ========================================= -->
-            <!-- CONFIGURAÇÃO DO OBJETIVO -->
-            <!-- ========================================= -->
 
             <section
                 class="profile-card"
@@ -2714,25 +2761,47 @@ function navigate(tab) {
 
 
 // ======================================================
-// ABRIR SELETOR
+// ABRIR CÂMERA
 // ======================================================
+//
+// IMPORTANTE:
+//
+// capture="environment" no input cameraInput faz com que,
+// em celulares compatíveis, o navegador abra diretamente
+// a câmera traseira.
+//
+// Depois que o usuário tirar a foto, o evento "change"
+// chama handleFileSelect().
+//
 
-function openFilePicker() {
+function openCamera() {
 
-    fileInput.value = "";
+    cameraInput.value = "";
 
-    fileInput.click();
+    cameraInput.click();
 }
 
 
 // ======================================================
-// SELECIONAR IMAGEM
+// ABRIR GALERIA
+// ======================================================
+
+function openGallery() {
+
+    galleryInput.value = "";
+
+    galleryInput.click();
+}
+
+
+// ======================================================
+// PROCESSAR FOTO
 // ======================================================
 
 function handleFileSelect(event) {
 
     const file =
-        event.target.files[0];
+        event.target.files?.[0];
 
 
     if (!file) {
@@ -2740,17 +2809,25 @@ function handleFileSelect(event) {
     }
 
 
+    // ==================================================
+    // VERIFICAR SE É IMAGEM
+    // ==================================================
+
     if (!file.type.startsWith("image/")) {
 
         alert(
             "Por favor, escolha uma imagem."
         );
 
-        fileInput.value = "";
+        event.target.value = "";
 
         return;
     }
 
+
+    // ==================================================
+    // LIMITE DE TAMANHO
+    // ==================================================
 
     const maxSize =
         10 * 1024 * 1024;
@@ -2762,19 +2839,37 @@ function handleFileSelect(event) {
             "A imagem deve ter no máximo 10 MB."
         );
 
-        fileInput.value = "";
+        event.target.value = "";
 
         return;
     }
 
 
+    // ==================================================
+    // LIBERAR FOTO ANTERIOR
+    // ==================================================
+
     if (selectedImage) {
 
-        URL.revokeObjectURL(
-            selectedImage
-        );
+        try {
+
+            URL.revokeObjectURL(
+                selectedImage
+            );
+
+        } catch (error) {
+
+            console.warn(
+                "Não foi possível liberar a imagem anterior.",
+                error
+            );
+        }
     }
 
+
+    // ==================================================
+    // SALVAR FOTO
+    // ==================================================
 
     selectedFile =
         file;
@@ -2783,6 +2878,10 @@ function handleFileSelect(event) {
     selectedImage =
         URL.createObjectURL(file);
 
+
+    // ==================================================
+    // RESETAR ANÁLISE
+    // ==================================================
 
     aiResult =
         null;
@@ -2800,10 +2899,18 @@ function handleFileSelect(event) {
         "camera";
 
 
+    // ==================================================
+    // MOSTRAR FOTO NO RETÂNGULO
+    // ==================================================
+
     render();
 
 
-    fileInput.value = "";
+    // ==================================================
+    // LIMPAR INPUT
+    // ==================================================
+
+    event.target.value = "";
 }
 
 
@@ -3208,20 +3315,6 @@ async function removeMeal(mealId) {
 // ======================================================
 // CALCULAR OBJETIVO
 // ======================================================
-//
-// Sem pedir idade, altura ou nível de atividade,
-// usamos uma referência simples de manutenção de
-// 2.500 kcal e aplicamos um déficit moderado.
-//
-// O usuário escolhe somente:
-// - peso atual
-// - kg que deseja perder
-//
-// 500 kcal/dia corresponde aproximadamente a
-// 0,45 kg/semana em termos energéticos.
-//
-// A meta fica limitada para evitar valores extremos.
-// ======================================================
 
 function calculateGoal(
     currentWeight,
@@ -3242,11 +3335,8 @@ function calculateGoal(
     }
 
 
-    // Déficit padrão moderado.
     const calorieDeficit = 500;
 
-
-    // Referência simplificada de manutenção.
     const estimatedMaintenance = 2500;
 
 
@@ -3415,12 +3505,6 @@ async function saveWeightGoal(event) {
         );
 
 
-    const message =
-        document.getElementById(
-            "goalMessage"
-        );
-
-
     const currentWeight =
         Number(
             weightInput?.value
@@ -3446,7 +3530,10 @@ async function saveWeightGoal(event) {
     }
 
 
-    if (currentWeight < 20 || currentWeight > 500) {
+    if (
+        currentWeight < 20 ||
+        currentWeight > 500
+    ) {
 
         showGoalMessage(
             "Digite um peso válido."
@@ -3746,6 +3833,14 @@ function bindEvents() {
     // ==================================================
     // BOTÃO DA CÂMERA
     // ==================================================
+    //
+    // AGORA:
+    //
+    // clicar no botão redondo -> abre a câmera
+    // tirar foto -> imagem aparece no retângulo
+    //
+    // A análise NÃO acontece aqui.
+    // ==================================================
 
     const shutterButton =
         document.getElementById(
@@ -3759,14 +3854,7 @@ function bindEvents() {
             "click",
             () => {
 
-                if (selectedImage) {
-
-                    analyzeImage();
-
-                } else {
-
-                    openFilePicker();
-                }
+                openCamera();
 
             }
         );
@@ -3787,7 +3875,11 @@ function bindEvents() {
 
         galleryButton.addEventListener(
             "click",
-            openFilePicker
+            () => {
+
+                openGallery();
+
+            }
         );
     }
 

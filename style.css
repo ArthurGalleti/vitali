@@ -1676,3 +1676,142 @@ button {
     font-weight: 600;
     color: #fff;
 }
+
+
+/* ======================================================
+   LOGIN — DESKTOP CENTRALIZADO
+   ====================================================== */
+
+@media (min-width: 851px) {
+
+    /* Quando for a tela de login, remove o layout de 2 colunas */
+    .app-shell:has(.login-phone) {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        width: 100%;
+        padding: 40px 24px;
+        gap: 0;
+    }
+
+    /* Card do login */
+    .login-phone {
+        width: min(460px, 100%);
+        min-height: 720px;
+        height: auto;
+        max-height: calc(100vh - 80px);
+
+        border-radius: 32px;
+        border: 1px solid #ffffff12;
+
+        box-shadow:
+            0 35px 100px #000b,
+            0 0 80px #bb32ff18;
+
+        overflow: hidden;
+    }
+
+    .login-screen {
+        min-height: 720px;
+        height: 100%;
+        padding: 55px 48px 40px;
+
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .login-brand {
+        margin-bottom: 38px;
+    }
+
+    .login-logo {
+        width: 62px;
+        height: 62px;
+        margin-bottom: 20px;
+    }
+
+    .login-brand p {
+        font-size: 12px;
+        letter-spacing: 2.2px;
+    }
+
+    .login-brand h1 {
+        font-size: 34px;
+        letter-spacing: -1.2px;
+    }
+
+    .login-brand span {
+        font-size: 14px;
+        max-width: 330px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .login-form {
+        width: 100%;
+        gap: 11px;
+    }
+
+    .login-form label {
+        font-size: 13px;
+        margin-top: 9px;
+    }
+
+    .login-form input {
+        height: 58px;
+        padding: 16px 18px;
+        border-radius: 16px;
+        font-size: 15px;
+    }
+
+    .login-form .primary-button {
+        height: 54px;
+        margin-top: 16px;
+        border-radius: 16px;
+    }
+
+    .secondary-auth-button {
+        height: 52px;
+        border-radius: 16px;
+    }
+
+    .text-auth-button {
+        margin-top: 20px;
+    }
+
+    .login-footer {
+        margin-top: 28px;
+    }
+}
+
+
+/* ======================================================
+   LOGIN — TELAS MENORES
+   ====================================================== */
+
+@media (max-width: 850px) {
+
+    .app-shell:has(.login-phone) {
+        display: block;
+        padding: 0;
+    }
+
+    .login-phone {
+        width: 100%;
+        min-height: 100vh;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    .login-screen {
+        min-height: 100vh;
+    }
+}
+
+
+.logo{
+    border-radius: 20%;
+}

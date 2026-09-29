@@ -1,4 +1,3 @@
-
 const express = require("express");
 const multer = require("multer");
 const dotenv = require("dotenv");
@@ -7,7 +6,6 @@ const { GoogleGenAI } = require("@google/genai");
 dotenv.config();
 
 const app = express();
-
 const port = process.env.PORT || 3000;
 
 // ======================================================
@@ -84,17 +82,8 @@ const upload = multer({
 app.use(express.static(__dirname));
 
 // ======================================================
-// ESPERAR
-// ======================================================
-
-function sleep(ms) {
-    return new Promise(resolve => {
-        setTimeout(resolve, ms);
-    });
-}
-
-// ======================================================
 // ANALISAR IMAGEM COM GEMINI
+// UMA ÚNICA CHAMADA
 // ======================================================
 
 async function analyzeWithGemini(base64Image, mimeType) {
@@ -136,6 +125,8 @@ Regras:
 - Retorne somente o JSON.
 `;
 
+    console.log("Enviando UMA chamada ao Gemini...");
+
     const response = await ai.models.generateContent({
         model: "gemini-3.6-flash",
 
@@ -147,6 +138,7 @@ Regras:
                     {
                         text: prompt
                     },
+
                     {
                         inlineData: {
                             mimeType: mimeType,
@@ -208,19 +200,26 @@ function normalizeResult(data) {
         : [];
 
     return {
-        calories: Number(data.calories) || 0,
 
-        protein: Number(data.protein) || 0,
+        calories:
+            Number(data.calories) || 0,
 
-        carbs: Number(data.carbs) || 0,
+        protein:
+            Number(data.protein) || 0,
 
-        fat: Number(data.fat) || 0,
+        carbs:
+            Number(data.carbs) || 0,
 
-        confidence: Number(data.confidence) || 0,
+        fat:
+            Number(data.fat) || 0,
+
+        confidence:
+            Number(data.confidence) || 0,
 
         foods: foods.map(food => {
 
             if (Array.isArray(food)) {
+
                 return [
                     String(food[0] || ""),
                     String(food[1] || ""),
@@ -232,6 +231,7 @@ function normalizeResult(data) {
                 typeof food === "object" &&
                 food !== null
             ) {
+
                 const calories =
                     Number(food.calorias) || 0;
 
@@ -253,6 +253,7 @@ function normalizeResult(data) {
 
 // ======================================================
 // API DE ANÁLISE
+// UMA ÚNICA TENTATIVA
 // ======================================================
 
 app.post(
@@ -296,8 +297,11 @@ app.post(
 
             console.log(
                 "Tamanho:",
-                (req.file.size / 1024 / 1024).toFixed(2) +
-                " MB"
+                (
+                    req.file.size /
+                    1024 /
+                    1024
+                ).toFixed(2) + " MB"
             );
 
             // ==================================================
@@ -311,151 +315,119 @@ app.post(
                 req.file.mimetype;
 
             // ==================================================
-            // TENTATIVAS
+            // UMA ÚNICA CHAMADA AO GEMINI
             // ==================================================
 
-            const maxAttempts = 3;
+            const text =
+                await analyzeWithGemini(
+                    base64Image,
+                    mimeType
+                );
 
-            let lastError = null;
+            console.log(
+                "Resposta recebida do Gemini."
+            );
 
-            for (
-                let attempt = 1;
-                attempt <= maxAttempts;
-                attempt++
-            ) {
+            // ==================================================
+            // LIMPAR JSON
+            // ==================================================
 
-                try {
+            const cleaned =
+                cleanJson(text);
 
-                    console.log(
-                        "Tentativa " +
-                        attempt +
-                        "/" +
-                        maxAttempts
-                    );
+            let parsed;
 
-                    // ==================================================
-                    // GEMINI
-                    // ==================================================
+            try {
 
-                    const text =
-                        await analyzeWithGemini(
-                            base64Image,
-                            mimeType
-                        );
+                parsed =
+                    JSON.parse(cleaned);
 
-                    console.log(
-                        "Resposta recebida do Gemini."
-                    );
+            } catch (error) {
 
-                    // ==================================================
-                    // LIMPAR JSON
-                    // ==================================================
+                console.error(
+                    "Resposta inválida do Gemini:"
+                );
 
-                    const cleaned =
-                        cleanJson(text);
+                console.error(cleaned);
 
-                    let parsed;
-
-                    try {
-
-                        parsed =
-                            JSON.parse(cleaned);
-
-                    } catch (error) {
-
-                        console.error(
-                            "Resposta inválida do Gemini:"
-                        );
-
-                        console.error(cleaned);
-
-                        return res.status(500).json({
-                            error:
-                                "O Gemini retornou um JSON inválido."
-                        });
-                    }
-
-                    // ==================================================
-                    // NORMALIZAR RESULTADO
-                    // ==================================================
-
-                    const result =
-                        normalizeResult(parsed);
-
-                    console.log(
-                        "Resultado:",
-                        result
-                    );
-
-                    console.log(
-                        "Análise concluída!"
-                    );
-
-                    return res.json(result);
-
-                } catch (error) {
-
-                    lastError = error;
-
-                    const message =
-                        error &&
-                        error.message
-                            ? error.message
-                            : String(error);
-
-                    console.error(
-                        "Erro:",
-                        message
-                    );
-
-                    // ==================================================
-                    // ERROS TEMPORÁRIOS
-                    // ==================================================
-
-                    const temporaryError =
-                        message.includes("503") ||
-                        message.includes("UNAVAILABLE") ||
-                        message.includes("429") ||
-                        message.includes("RESOURCE_EXHAUSTED") ||
-                        message.includes("high demand");
-
-                    if (!temporaryError) {
-                        break;
-                    }
-
-                    // ==================================================
-                    // TENTAR NOVAMENTE
-                    // ==================================================
-
-                    if (attempt < maxAttempts) {
-
-                        const wait =
-                            attempt * 3000;
-
-                        console.log(
-                            "Gemini temporariamente indisponível."
-                        );
-
-                        console.log(
-                            "Tentando novamente em " +
-                            (wait / 1000) +
-                            " segundos..."
-                        );
-
-                        await sleep(wait);
-                    }
-                }
+                return res.status(500).json({
+                    error:
+                        "O Gemini retornou um JSON inválido."
+                });
             }
 
             // ==================================================
-            // ERRO FINAL
+            // NORMALIZAR RESULTADO
             // ==================================================
 
+            const result =
+                normalizeResult(parsed);
+
+            console.log(
+                "Resultado:",
+                result
+            );
+
+            console.log(
+                "Análise concluída!"
+            );
+
+            return res.json(result);
+
+        } catch (error) {
+
+            // ==================================================
+            // LOG COMPLETO DO ERRO
+            // ==================================================
+
+            console.error(
+                "===================================="
+            );
+
+            console.error(
+                "ERRO DO GEMINI"
+            );
+
+            console.error(
+                "Mensagem:",
+                error?.message || String(error)
+            );
+
+            console.error(
+                "Status:",
+                error?.status ||
+                error?.statusCode ||
+                "desconhecido"
+            );
+
+            console.error(
+                "Erro completo:",
+                error
+            );
+
+            console.error(
+                "===================================="
+            );
+
             const finalMessage =
-                lastError &&
-                lastError.message
-                    ? lastError.message
-                    : String(lastError);
+                error?.message
+                    ? error.message
+                    : String(error);
+
+            // ==================================================
+            // ERRO 429
+            // ==================================================
+
+            if (
+                finalMessage.includes("429") ||
+                finalMessage.includes("RESOURCE_EXHAUSTED")
+            ) {
+
+                return res.status(429).json({
+                    error:
+                        "O limite da API do Gemini foi atingido. Aguarde e tente novamente."
+                });
+            }
 
             // ==================================================
             // ERRO 503
@@ -474,21 +446,6 @@ app.post(
             }
 
             // ==================================================
-            // ERRO 429
-            // ==================================================
-
-            if (
-                finalMessage.includes("429") ||
-                finalMessage.includes("RESOURCE_EXHAUSTED")
-            ) {
-
-                return res.status(429).json({
-                    error:
-                        "O limite da API do Gemini foi atingido."
-                });
-            }
-
-            // ==================================================
             // OUTRO ERRO
             // ==================================================
 
@@ -496,18 +453,6 @@ app.post(
                 error:
                     "Erro ao analisar a imagem: " +
                     finalMessage
-            });
-
-        } catch (error) {
-
-            console.error(
-                "Erro interno:",
-                error
-            );
-
-            return res.status(500).json({
-                error:
-                    "Erro interno ao analisar a imagem."
             });
         }
     }
@@ -558,9 +503,18 @@ app.use((error, req, res, next) => {
 app.listen(port, () => {
 
     console.log("");
-    console.log("====================================");
-    console.log("            VITALI.IA");
-    console.log("====================================");
+
+    console.log(
+        "===================================="
+    );
+
+    console.log(
+        "            VITALI.IA"
+    );
+
+    console.log(
+        "===================================="
+    );
 
     console.log(
         "Servidor rodando na porta: " +
@@ -575,7 +529,13 @@ app.listen(port, () => {
         "Modelo: gemini-3.6-flash"
     );
 
-    console.log("====================================");
+    console.log(
+        "Modo: 1 chamada por análise"
+    );
+
+    console.log(
+        "===================================="
+    );
+
     console.log("");
 });
-
